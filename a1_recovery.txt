@@ -1,0 +1,287 @@
+Fri Jun 25 16:43:26 EDT 2021
+
+hostname:rns-ldap
+
+SELinux status:Enforcing
+
+release:4.18.0-193.el8.x86_64
+
+UUID:340c51dc-89fd-42e3-9a74-da365fa7f126 acf5ce23-02 acf5ce23-01 913282fd-33f0-4e21-83cc-ff7e97319e38
+
+firewalld:active
+firewalld:enabled
+named:active
+named:enabled
+
+internal (active)
+  target: default
+  icmp-block-inversion: no
+  interfaces: ens224
+  sources: 
+  services: cockpit dhcpv6-client dns mdns samba-client ssh
+  ports: 
+  protocols: 
+  masquerade: no
+  forward-ports: 
+  source-ports: 
+  icmp-blocks: 
+  rich rules: 
+
+public (active)
+  target: default
+  icmp-block-inversion: no
+  interfaces: ens192
+  sources: 
+  services: cockpit dhcpv6-client dns ssh
+  ports: 
+  protocols: 
+  masquerade: no
+  forward-ports: 
+  source-ports: 
+  icmp-blocks: 
+  rich rules: 
+
+
+
+Addresses
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: ens192: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 00:50:56:00:02:28 brd ff:ff:ff:ff:ff:ff
+    inet 172.20.17.4/16 brd 172.20.255.255 scope global dynamic noprefixroute ens192
+       valid_lft 82917sec preferred_lft 82917sec
+    inet6 fe80::250:56ff:fe00:228/64 scope link 
+       valid_lft forever preferred_lft forever
+3: ens224: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 00:0c:29:d0:24:37 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.17.4/24 brd 192.168.17.255 scope global noprefixroute ens224
+       valid_lft forever preferred_lft forever
+    inet6 fe80::1c86:cc60:b2e7:61de/64 scope link noprefixroute 
+       valid_lft forever preferred_lft forever
+
+Named Config
+//
+// named.conf
+//
+// Provided by Red Hat bind package to configure the ISC BIND named(8) DNS
+// server as a caching only nameserver (as a localhost DNS resolver only).
+//
+// See /usr/share/doc/bind*/sample/ for example named configuration files.
+//
+
+options {
+
+	listen-on port 53 { 127.0.0.1; 192.168.17.2; 172.20.17.2; };
+	listen-on-v6 port 53 { ::1; };
+	directory 	"/var/named";
+	dump-file 	"/var/named/data/cache_dump.db";
+	statistics-file "/var/named/data/named_stats.txt";
+	memstatistics-file "/var/named/data/named_mem_stats.txt";
+	secroots-file	"/var/named/data/named.secroots";
+	recursing-file	"/var/named/data/named.recursing";
+	allow-query     { localhost; 192.168.17.2; 172.20.17.2; };
+
+	/* 
+	 - If you are building an AUTHORITATIVE DNS server, do NOT enable recursion.
+	 - If you are building a RECURSIVE (caching) DNS server, you need to enable 
+	   recursion. 
+	 - If your recursive DNS server has a public IP address, you MUST enable access 
+	   control to limit queries to your legitimate users. Failing to do so will
+	   cause your server to become part of large scale DNS amplification 
+	   attacks. Implementing BCP38 within your network would greatly
+	   reduce such attack surface 
+	*/
+	recursion yes;
+
+	dnssec-enable yes;
+	dnssec-validation yes;
+
+	managed-keys-directory "/var/named/dynamic";
+
+	pid-file "/run/named/named.pid";
+	session-keyfile "/run/named/session.key";
+
+	/* https://fedoraproject.org/wiki/Changes/CryptoPolicy */
+	include "/etc/crypto-policies/back-ends/bind.config";
+};
+
+logging {
+        channel default_debug {
+                file "data/named.run";
+                severity dynamic;
+        };
+};
+
+zone "." IN {
+	type hint;
+	file "named.ca";
+};
+
+include "/etc/named.rfc1912.zones";
+include "/etc/named.root.key";
+
+//forward zone
+zone "pri-dns" IN {
+	type master;
+	file "pri-dns.db";
+	allow-update { none; };
+	allow-query { any; };
+};
+//backward zone
+zone "43.168.192.in-addr.arpa" IN {
+	type master;
+	file "pri-dns.rev";
+	allow-update { none; };
+	allow-query { any; };
+};
+
+Zone config
+/var/named/pri-dns.db
+$TTL 86400
+@ IN SOA pri-dns. root.pri-dns. (
+                                            2020011800 ;Serial
+                                            3600 ;Refresh
+                                            1800 ;Retry
+                                            604800 ;Expire
+                                            86400 ;Minimum TTL
+)
+;Name Server Information
+@ IN NS dns-primary.linuxtechi.local.
+pri-dns     IN      A       192.168.17.2
+pri-dns	    IN	    A       172.20.17.2
+
+;Reverse lookup for Name Server
+35 IN PTR pri-dns.
+
+;
+@	IN	NS	pri-dns.
+@	IN	A	192.168.17.2
+@	IN	A	172.20.17.2
+pri-dns	IN	A	192.168.17.2
+
+/var/named/pri-dns.rev
+$TTL 86400
+@ IN SOA pri-dns. root.pri-dns. (
+                                            2020011800 ;Serial
+                                            3600 ;Refresh
+                                            1800 ;Retry
+                                            604800 ;Expire
+                                            86400 ;Minimum TTL
+)
+;Name Server Information
+@ IN NS dns-primary.linuxtechi.local.
+pri-dns     IN      A       192.168.17.2
+pri-dns     IN      A       172.20.17.2
+
+;Reverse lookup for Name Server
+35 IN PTR pri-dns.
+
+;
+@       IN      NS      pri-dns.
+@       IN      A       192.168.17.2
+@       IN      A       172.20.17.2
+pri-dns IN      A       192.168.17.2
+
+
+slapd:active
+slapd:enabled
+
+BASE CONFIG
+# AUTO-GENERATED FILE - DO NOT EDIT!! Use ldapmodify.
+# CRC32 8eb913a8
+dn: olcDatabase={2}mdb
+objectClass: olcDatabaseConfig
+objectClass: olcMdbConfig
+olcDatabase: {2}mdb
+olcDbDirectory: /var/lib/ldap
+olcDbIndex: objectClass eq,pres
+olcDbIndex: ou,cn,mail,surname,givenname eq,pres,sub
+structuralObjectClass: olcMdbConfig
+entryUUID: d1490e76-6a3d-103b-8691-b93392095a06
+creatorsName: cn=config
+createTimestamp: 20210625201523Z
+olcSuffix: dc=rns-ldap
+olcRootDN: cn=Manager,dc=rns-ldap
+olcRootPW:: e1NTSEF9ZjVjWnhJZEVLQWc3SHdqZGw4ZUpiVEFnVGt5cHQ1Vmw=
+entryCSN: 20210625202734.843452Z#000000#000#000000
+modifiersName: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
+modifyTimestamp: 20210625202734Z
+
+CERTIFICATES
+
+OPENLDAP CONFIG
+#
+# LDAP Defaults
+#
+
+# See ldap.conf(5) for details
+# This file should be world readable but not world writable.
+
+#BASE	dc=example,dc=com
+#URI	ldap://ldap.example.com ldap://ldap-master.example.com:666
+
+#SIZELIMIT	12
+#TIMELIMIT	15
+#DEREF		never
+
+# When no CA certificates are specified the Shared System Certificates
+# are in use. In order to have these available along with the ones specified
+# by TLS_CACERTDIR one has to include them explicitly:
+#TLS_CACERT	/etc/pki/tls/cert.pem
+
+# System-wide Crypto Policies provide up to date cipher suite which should
+# be used unless one needs a finer grinded selection of ciphers. Hence, the
+# PROFILE=SYSTEM value represents the default behavior which is in place
+# when no explicit setting is used. (see openssl-ciphers(1) for more info)
+#TLS_CIPHER_SUITE PROFILE=SYSTEM
+
+# Turning this off breaks GSSAPI used with krb5 when rdns = false
+SASL_NOCANON	on
+
+
+CONTENTS
+# extended LDIF
+#
+# LDAPv3
+# base <dc=rns-ldap> with scope subtree
+# filter: (objectClass=*)
+# requesting: ALL
+#
+
+# rns-ldap
+dn: dc=rns-ldap
+dc: rns-ldap
+objectClass: top
+objectClass: domain
+
+# Manager, rns-ldap
+dn: cn=Manager,dc=rns-ldap
+objectClass: organizationalRole
+cn: Manager
+description: LDAP Manager
+
+# People, rns-ldap
+dn: ou=People,dc=rns-ldap
+objectClass: organizationalUnit
+ou: People
+
+# Group, rns-ldap
+dn: ou=Group,dc=rns-ldap
+objectClass: organizationalUnit
+ou: Group
+
+# search result
+search: 2
+result: 0 Success
+
+# numResponses: 5
+# numEntries: 4
+
+NFS Mounts
+sunrpc on /var/lib/nfs/rpc_pipefs type rpc_pipefs (rw,relatime)
+nfs-server:/home on /nfs-mnt type nfs4 (rw,relatime,vers=4.2,rsize=262144,wsize=262144,namlen=255,hard,proto=tcp,timeo=600,retrans=2,sec=sys,clientaddr=192.168.17.4,local_lock=none,addr=192.168.17.3)
+
